@@ -23,13 +23,18 @@ if [ ! $FASTAURL ]; then
  echo "need FASTA for genome in the config file"
  exit
 fi
+if [ ! $PREFIX ]; then
+ echo "need PREFIX for this project/genome in the config file"
+ exit
+fi
 
 GFF=$(basename $GFFURL)
 FASTA=$(basename $FASTAURL)
 
 if [ ! -f $GFF ]; then
  curl -o $GFF $GFFURL 
- grep -P "\tgene\t" $GFF | awk 'BEGIN{OFS="\t"} {print $1,$4,$5,$9}' | perl -p -e 's/ID=([^;]+);.+/$1/' > Af293.genes.bed
+ # make sure genes are sorted
+ grep -P "\tgene\t" $GFF | awk 'BEGIN{OFS="\t"} {print $1,$4,$5,$9}' | perl -p -e 's/ID=([^;]+);.+/$1/' | sort -k1,1 -k2,2n > $PREFIX.genes.bed
 fi
 if [ ! -f $FASTA ]; then
  curl -o $FASTA $FASTAURL 

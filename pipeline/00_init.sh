@@ -7,13 +7,14 @@ module load GEM
 module load kent # need Jim Kent UCSC tools
 
 CPU=$SLURM_CPUS_ON_NODE
-pushd genome
+CONFIG=config.txt # this is harcoded but could be overwritten cnv.cfg ?
 
-if [ ! -e config.txt ]; then
+if [ ! -e $CONFIG ]; then
  echo "Cannot run without a config file"
  exit
 fi
-source config.txt
+source $CONFIG
+pushd genome
 
 if [ ! $GFFURL ]; then
  echo "need GFF variable in the config file"
@@ -34,10 +35,16 @@ FASTA=$(basename $FASTAURL)
 if [ ! -f $GFF ]; then
  curl -o $GFF $GFFURL 
  # make sure genes are sorted
+fi
+if [ ! $PREFIX.genes.bed ]; then
  grep -P "\tgene\t" $GFF | awk 'BEGIN{OFS="\t"} {print $1,$4,$5,$9}' | perl -p -e 's/ID=([^;]+);.+/$1/' | sort -k1,1 -k2,2n > $PREFIX.genes.bed
 fi
+
 if [ ! -f $FASTA ]; then
  curl -o $FASTA $FASTAURL 
+fi
+
+if [ ! -e $PREFIX.fasta ]; then
  ln -s $FASTA $PREFIX.fasta
 fi
 

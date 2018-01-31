@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --ntasks 24 --nodes 1
-#SBATCH --out logs/bamgcbias.%a.log -J bamgcbias  --time 8:00:00 --mem 48G
+#SBATCH --out logs/bamgcbias.%a.log -J bamgcbias --time 24:00:00 --mem 24G 
 
 # THIS REQUIRES DEEPTOOLS https://github.com/deeptools/deepTools
 
@@ -30,8 +30,6 @@ if [ $N -gt $MAX ]; then
 fi
 BAM=$(sed -n ${N}p $BAMLIST)
 
-
-
 if [ ! -e $CONFIG ]; then
  echo "Need a config.txt ($CONFIG) file"
  exit
@@ -58,42 +56,44 @@ fi
 
 COVERAGEBIASDIR=$COVERAGEDIR/GCbiasCorrect
 GENOME2BIT=$GENOMEDIR/$PREFIX.2bit
+BAMCOVDIR=$COVERAGEDIR/bamCoverage
 
 mkdir -p $OUTDIR
 mkdir -p $COVERAGEBIASDIR
 mkdir -p $GCBIASCORBAMDIR
+mkdir -p $BAMCOVDIR
 
-bamfile=$(ls $BAMDIR/*.bam | sed -n ${N}p)
-b=$(basename $bamfile .bam)
+base=$(basename $BAM .bam)
 
-if [ ! -f $OUTDIR/$b.bamPEFragsize.txt ]; then
+if [ ! -f $OUTDIR/$base.bamPEFragsize.txt ]; then
   bamPEFragmentSize -p $CPU --distanceBetweenBins $SAMPLING_DISTANCE \
-  $bamfile > $OUTDIR/$b.bamPEFragsize.txt
+  $BAM > $OUTDIR/$base.bamPEFragsize.txt
 fi
 
 # estimate GC bias 
-if [ ! -f $COVERAGEBIASDIR/$b.plot.png ]; then
-  computeGCBias --bam $file -freq $COVERAGEBIASDIR/$b.gcbias \
-   --biasPlot $COVERAGEBIASDIR/$b.plot.png \
+if [ ! -f $COVERAGEBIASDIR/$base.plot.png ]; then
+  computeGCBias --bam $BAM -freq $COVERAGEBIASDIR/$base.gcbias \
+   --biasPlot $COVERAGEBIASDIR/$base.plot.png \
   -p $CPU --genome $GENOME2BIT \
-  --effectiveGenomeSize $EFFECTIVE_GENOME_SIZE -l $FRAGMENT_LENGTH
+  --effectiveGenomeSize $EFFECTIVE_GENOME_SIZE -l $FRAGMENT_LENGTH 
 fi
 
 # generate GC-corrected bam file
 mkdir -p $GCBIASCORBAMDIR
 
-CORRECTEDBAM=$GCBIASCORBAMDIR/$b.bam
+CORRECTEDBAM=$GCBIASCORBAMDIR/$base.bam
 if [ ! -f $CORRECTEDBAM ]; then
-    correctGCBias --bamfile $bamfile \
+    correctGCBias --bamfile $BAM \
     --effectiveGenomeSize $EFFECTIVE_GENOME_SIZE \
-    --GCbiasFrequenciesFile $COVERAGEBIASDIR/$b.gcbias \
+    --GCbiasFrequenciesFile $COVERAGEBIASDIR/$base.gcbias \
     --correctedFile $CORRECTEDBAM --genome $GENOME2BIT
 fi
 
 # compute coverage stats
 
-if [ ! -f  $OUTDIR/$b.bg ]; then
-  bamCoverage --bam $CORRECTEDBAM -o $OUTDIR/$b.bg \
-  -bs 50 -p $CPU -of bedgraph --normalizeTo1x $EFFECTIVE_GENOME_SIZE 
-fi
+#if [ ! -f  $BAMCOVDIR/$base.bg.gz ]; then
+#  bamCoverage --bam $CORRECTEDBAM -o $BAMCOVDIR/$base.bg \
+#  -bs 10 -p $CPU -of bedgraph --normalizeTo1x $EFFECTIVE_GENOME_SIZE 
+#  pigz $BAMCOVDIR/$base.bg
+#fi
 
